@@ -12,7 +12,7 @@ library(tidyverse)
 # ---- 2. Define Paths & Sample Names ----
 # Set path to the cutadapt filtered fastq files
 filteredReadsPath <- "path"
-taxaDBPath <- "path"
+taxaDBPath <- "path/silva_nr99_v138.1_train_set.fa.gz"
 
 # Get list of filtered reads
 forwardReads_filt <- sort(list.files(filteredReadsPath, pattern=".fastq.gz", full.names = TRUE))
