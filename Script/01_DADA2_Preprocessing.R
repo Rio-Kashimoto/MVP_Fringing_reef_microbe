@@ -73,7 +73,7 @@ write.csv(track, "Data/DADA2_read_tracking.csv")
 
 # ---- 6. Filter Low-Read Samples ----
 # Remove samples with fewer than 900 reads to prevent artifacts in diversity analysis
-read_threshold <- 900
+read_threshold <- 1000
 keep_samples <- rowSums(seqtab_nochim) >= read_threshold
 
 seqtab_filtered <- seqtab_nochim[keep_samples, ]
