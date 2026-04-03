@@ -106,21 +106,48 @@ metadata <- tibble(Sample_names = final_sample_names) %>%
   ) %>%
   column_to_rownames("Sample_names")
 
-# ---- 9. Construct and Save Phyloseq Object ----
-# Build the phyloseq object
+# ---- 9. Construct Initial Phyloseq Object ----
+# Build the baseline phyloseq object
 ps <- phyloseq(otu_table(seqtab_filtered, taxa_are_rows = FALSE), 
                sample_data(metadata), 
                tax_table(taxa))
 
-# Extract DNA sequences into a Biostrings object and rename taxa to ASV1, ASV2...
-dna <- Biostrings::DNAStringSet(taxa_names(ps))
-names(dna) <- taxa_names(ps)
-ps <- merge_phyloseq(ps, dna)
-taxa_names(ps) <- paste0("ASV", seq(ntaxa(ps)))
+# ---- 10. Remove Off-Target Sequences ----
+# In coral microbiomes, we must remove host/algal Eukaryote DNA, 
+# Chloroplasts, Mitochondria, and sequences that failed to assign at the Kingdom level.
+cat("Taxa before filtering organelles/eukaryotes: ", ntaxa(ps), "\n")
+
+ps_clean <- subset_taxa(ps, 
+  # Keep only Bacteria and Archaea (removes Eukaryotes and unassigned Kingdoms)
+  Kingdom %in% c("Bacteria", "Archaea") & 
+  
+  # Remove Chloroplasts (allow NA in Order)
+  (Order != "Chloroplast" | is.na(Order)) & 
+  
+  # Remove Mitochondria (allow NA in Family)
+  (Family != "Mitochondria" | is.na(Family))
+)
+
+cat("Taxa after filtering organelles/eukaryotes: ", ntaxa(ps_clean), "\n")
+
+# Optional but recommended sanity check: Did this remove a lot of reads?
+reads_before <- sum(sample_sums(ps))
+reads_after <- sum(sample_sums(ps_clean))
+cat("Percentage of reads kept after removing off-target taxa: ", 
+    round((reads_after/reads_before)*100, 2), "%\n")
+
+# ---- 11. Extract DNA and Rename to ASVs ----
+# Extract DNA sequences into a Biostrings object for the CLEANED taxa
+dna <- Biostrings::DNAStringSet(taxa_names(ps_clean))
+names(dna) <- taxa_names(ps_clean)
+ps_clean <- merge_phyloseq(ps_clean, dna)
+
+# Rename to ASV1, ASV2... (doing this after filtering ensures perfectly sequential numbering!)
+taxa_names(ps_clean) <- paste0("ASV", seq(ntaxa(ps_clean)))
 
 # Final sanity check
-print(ps)
+print(ps_clean)
 
-# Save the finalized, clean phyloseq object
-saveRDS(ps, "Data/ps_POC_POR_filtered.rds")
-cat("Pipeline complete. Filtered Phyloseq object saved to 'Data/ps_POC_POR_filtered.rds'\n")
+# ---- 12. Save the Final Clean Phyloseq Object ----
+saveRDS(ps_clean, "Data/ps_POC_POR_filtered_clean.rds")
+cat("Pipeline complete. Final clean Phyloseq object saved to 'Data/ps_POC_POR_filtered_clean.rds'\n")
