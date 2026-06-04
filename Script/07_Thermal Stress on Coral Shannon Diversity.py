@@ -26,26 +26,21 @@ df_temp['hotspot_local'] = df_temp['hotspot'].apply(lambda x: x if x >= 0.0 else
 df_temp['dhw'] = df_temp['hotspot_local'].rolling(window=84, min_periods=1).sum() / 7.0
 
 # 2. Load and Average Diversity Data
-df_div = pd.read_csv('POCPOR2017_2019_alphaDiv.csv')
-df_div['Group'] = df_div['Samples'].apply(lambda x: "_".join(x.split('_')[:2]))
-
-# Filter: Revert back to the specific 6 groups preferred
-requested_groups = [
-    'POCFRG2017_1', 'POCFRG2019_1', 
-    'PORFRG2017_0', 'PORFRG2017_1', 'PORFRG2019_0', 'PORFRG2019_1'
-]
-df_div = df_div[df_div['Group'].isin(requested_groups)]
+df_div = pd.read_csv('POC_POR_2017_2019_alphaDiv_Complete.csv')
 
 # Group by Host and Year to get the new averages
+# Using the full dataset average per species per year
 df_div['Host_Year'] = df_div['Host'] + "_" + df_div['Year'].astype(str)
 summary_df = df_div.groupby('Host_Year')['Shannon'].mean().reset_index()
 
 # Define plotting dates and UPDATED colors (forestgreen, firebrick)
 plot_info = {
-    'Pocillopora_2017': {'date': pd.to_datetime('2017-09-05'), 'color': 'forestgreen'},
-    'Porites_2017':     {'date': pd.to_datetime('2017-09-25'), 'color': 'firebrick'},
-    'Pocillopora_2019': {'date': pd.to_datetime('2019-08-05'), 'color': 'forestgreen'},
-    'Porites_2019':     {'date': pd.to_datetime('2019-08-25'), 'color': 'firebrick'}
+    'Pocillopora spp_2017': {'date': pd.to_datetime('2017-09-05'), 'color': 'forestgreen'},
+    'Porites lobota_2017':  {'date': pd.to_datetime('2017-09-25'), 'color': 'firebrick'},
+    'Pocillopora spp_2018': {'date': pd.to_datetime('2018-08-05'), 'color': 'forestgreen'},
+    'Porites lobota_2018':  {'date': pd.to_datetime('2018-08-25'), 'color': 'firebrick'},
+    'Pocillopora spp_2019': {'date': pd.to_datetime('2019-08-05'), 'color': 'forestgreen'},
+    'Porites lobota_2019':  {'date': pd.to_datetime('2019-08-25'), 'color': 'firebrick'}
 }
 
 # 3. Create Plot
