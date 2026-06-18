@@ -3,6 +3,135 @@
 #Project: MVP Coral Microbiome Analysis (Porites & Pocillopora)
 #Description: Calculates betaMNTD and betaNTI to determine community assembly processes (Deterministic vs. Stochastic) for both Pocillopora (POC) and Porites (POR) samples.
 
+vi BTNI.R
+#Run on Cluster for Null Model 999 iterations
+library(phyloseq)
+library(picante) 
+
+# 1. Load Data
+# Make sure to update the path to where the file is on your cluster!
+ps.rare <- readRDS("/path/ps_POC_POR_WITH_TREE.rds")
+
+# 2. Clean Data (Same as your local script)
+ps.rare <- prune_samples(sample_sums(ps.rare) > 0, ps.rare)
+ps.rare <- prune_taxa(taxa_sums(ps.rare) > 0, ps.rare)
+
+target_taxa <- taxa_names(ps.rare)
+target_tree <- phy_tree(ps.rare)
+pruned_tree <- keep.tip(target_tree, target_taxa)
+
+otu_tab <- as(otu_table(ps.rare), "matrix")
+if (taxa_are_rows(ps.rare)) { otu_tab <- t(otu_tab) }
+
+# 3. Calculate observed distance
+phlyo_dist <- cophenetic(pruned_tree)
+print("Calculating Observed betaMNTD...")
+betaMNTD_obs <- as.matrix(comdistnt(otu_tab, phlyo_dist, abundance.weighted = TRUE))
+
+# 4. Null Model (999 iterations for publication)
+set.seed(123)
+null_list <- list()
+print("Starting Null Model Randomizations (999 iterations)...")
+
+for(i in 1:999){
+  rand_dist <- phlyo_dist
+  rand_names <- sample(colnames(rand_dist))
+  rownames(rand_dist) <- rand_names
+  colnames(rand_dist) <- rand_names
+  
+  null_list[[i]] <- as.matrix(comdistnt(otu_tab, rand_dist, abundance.weighted = TRUE))
+  
+  # Print progress so you can check cluster logs
+  if(i %% 50 == 0) cat("Iteration:", i, "\n") 
+}
+
+# 5. Calculate Final betaNTI Matrix
+print("Calculating final betaNTI matrix...")
+null_array <- array(unlist(null_list), dim = c(nrow(betaMNTD_obs), ncol(betaMNTD_obs), length(null_list)))
+null_mean  <- apply(null_array, c(1,2), mean)
+null_sd    <- apply(null_array, c(1,2), sd)
+betaNTI    <- (betaMNTD_obs - null_mean) / null_sd
+
+
+# 6. SAVE THE RESULT
+# This saves the matrix as a tiny, highly compressed file
+saveRDS(betaNTI, file = "/path/betaNTI_matrix_999.rds")
+print("Complete! Matrix saved as betaNTI_matrix_999.rds")
+
+:wq
+
+
+vi BTNI_run
+
+#!/bin/bash
+#SBATCH --job-name=BTNI_pipeline
+#SBATCH --time=58-08:00:0         
+#SBATCH --cpus-per-task=16        
+#SBATCH --mem=64G
+#SBATCH --mail-user=email
+#SBATCH --mail-type=ALL
+#SBATCH -p batch
+#SBATCH --nodes=1 
+#SBATCH --ntasks=1
+
+# Load your environment for R package  
+
+# Run the R script
+echo "Starting BTNI Pipeline..."
+Rscript BTNI.R 
+echo "Finished!
+
+####Plot by Rstudio
+# =====================================================
+# LOCAL SCRIPT: Load Data and Plot
+# =====================================================
+library(phyloseq)
+library(dplyr)
+library(reshape2)
+library(ggplot2)
+
+# 1. Load the phyloseq object just to extract your metadata
+ps.rare <- readRDS(here::here("path/ps_POC_POR_WITH_TREE.rds"))
+ps.rare <- prune_samples(sample_sums(ps.rare) > 0, ps.rare)
+
+# 2. LOAD YOUR CLUSTER RESULT
+# Point this to wherever you downloaded the file from your cluster
+betaNTI <- readRDS(here::here("path/betaNTI_matrix_999.rds"))
+
+# 3. Format Metadata (Same as we did earlier)
+meta <- data.frame(as.matrix(sample_data(ps.rare)), stringsAsFactors = FALSE)
+meta$SampleID <- rownames(meta)
+
+meta$Species <- ifelse(grepl("^POC", meta$SampleID), "POC", "POR")
+meta$Year <- as.factor(meta$Year)
+
+meta <- meta %>%
+  mutate(Region = case_when(
+    Site %in% c("0","1","2") ~ "North",
+    Site %in% c("3","3.5","4") ~ "East",
+    Site %in% c("5","5.5","6") ~ "West",
+    TRUE ~ NA_character_
+  ))
+
+# 4. Melt the loaded matrix and classify processes
+betaNTI_long <- melt(betaNTI, varnames = c("Sample1", "Sample2"), value.name = "bNTI")
+betaNTI_long <- betaNTI_long[betaNTI_long$Sample1 != betaNTI_long$Sample2, ]
+
+betaNTI_long$Species1 <- meta$Species[match(betaNTI_long$Sample1, meta$SampleID)]
+betaNTI_long$Species2 <- meta$Species[match(betaNTI_long$Sample2, meta$SampleID)]
+betaNTI_long$Year1    <- meta$Year[match(betaNTI_long$Sample1, meta$SampleID)]
+betaNTI_long$Year2    <- meta$Year[match(betaNTI_long$Sample2, meta$SampleID)]
+betaNTI_long$Region1  <- meta$Region[match(betaNTI_long$Sample1, meta$SampleID)]
+betaNTI_long$Region2  <- meta$Region[match(betaNTI_long$Sample2, meta$SampleID)]
+
+betaNTI_long$Process <- cut(betaNTI_long$bNTI,
+                            breaks = c(-Inf, -2, 2, Inf),
+                            labels = c("Homogeneous selection", "Stochastic", "Variable selection"))
+
+
+
+
+##### previous
 # ---- 1. Load Packages ----
 set.seed(123)
 library(phyloseq)
