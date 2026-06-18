@@ -6,6 +6,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+import matplotlib.patches as mpatches
 
 # 1. Load Temperature Data
 df_2017 = pd.read_csv('LTER01_2017_Jan_Dec_DailyMean_Temp_1155_1455.csv')
@@ -29,16 +30,16 @@ df_temp['dhw'] = df_temp['hotspot_local'].rolling(window=84, min_periods=1).sum(
 df_div = pd.read_csv('POC_POR_2017_2019_alphaDiv_Complete.csv')
 
 # Group by Host and Year to get the new averages
-# Using the full dataset average per species per year
 df_div['Host_Year'] = df_div['Host'] + "_" + df_div['Year'].astype(str)
 summary_df = df_div.groupby('Host_Year')['Shannon'].mean().reset_index()
 
 # Define plotting dates and UPDATED colors (forestgreen, firebrick)
+# UPDATED: 2018 dates shifted to March
 plot_info = {
     'Pocillopora spp_2017': {'date': pd.to_datetime('2017-09-05'), 'color': 'forestgreen'},
     'Porites lobota_2017':  {'date': pd.to_datetime('2017-09-25'), 'color': 'firebrick'},
-    'Pocillopora spp_2018': {'date': pd.to_datetime('2018-08-05'), 'color': 'forestgreen'},
-    'Porites lobota_2018':  {'date': pd.to_datetime('2018-08-25'), 'color': 'firebrick'},
+    'Pocillopora spp_2018': {'date': pd.to_datetime('2018-03-05'), 'color': 'forestgreen'},
+    'Porites lobota_2018':  {'date': pd.to_datetime('2018-03-25'), 'color': 'firebrick'},
     'Pocillopora spp_2019': {'date': pd.to_datetime('2019-08-05'), 'color': 'forestgreen'},
     'Porites lobota_2019':  {'date': pd.to_datetime('2019-08-25'), 'color': 'firebrick'}
 }
@@ -47,11 +48,11 @@ plot_info = {
 fig, ax1 = plt.subplots(figsize=(14, 7))
 ax2 = ax1.twinx()
 
-# Plot Temp on Left Axis (UPDATED TO BLACK)
+# Plot Temp on Left Axis
 color_temp = 'black'
 ax1.plot(df_temp['date'], df_temp['rolling_temp'], color=color_temp, linewidth=2.5, label='Benthic Temp')
 ax1.set_ylabel("Fringing Reef Benthic Water Temp (°C)", fontsize=16, fontweight='bold', color=color_temp, labelpad=10)
-# Make actual tick numbers larger and bold
+
 ax1.tick_params(axis='y', labelcolor=color_temp, labelsize=14)
 for label in ax1.get_yticklabels():
     label.set_fontweight('bold')
@@ -61,7 +62,7 @@ color_dhw = '#de2d26'
 ax2.plot(df_temp['date'], df_temp['dhw'], color=color_dhw, linewidth=1.5, alpha=0.8, label='Thermal Stress')
 ax2.fill_between(df_temp['date'], 0, df_temp['dhw'], color=color_dhw, alpha=0.3)
 ax2.set_ylabel("Accumulated Thermal Stress (DHW, °C-weeks)", fontsize=16, fontweight='bold', color=color_dhw, labelpad=10)
-# Make actual tick numbers larger and bold
+
 ax2.tick_params(axis='y', labelcolor=color_dhw, labelsize=14)
 for label in ax2.get_yticklabels():
     label.set_fontweight('bold')
@@ -91,13 +92,10 @@ plt.title("Impact of Thermal Stress on Averaged Coral Shannon Diversity (2017–
 ax1.set_xlabel("Time (Month/Year)", fontsize=16, fontweight='bold', labelpad=10)
 ax1.xaxis.set_major_locator(mdates.MonthLocator(interval=3))
 ax1.xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
-# Make the X-axis date labels larger and bold
+
 ax1.tick_params(axis='x', labelsize=14)
 for label in ax1.get_xticklabels():
     label.set_fontweight('bold')
-
-# Legends
-import matplotlib.patches as mpatches
 
 # Legend 1: Species Colors
 poc_patch = mpatches.Patch(color='forestgreen', label='Pocillopora (POC)')
